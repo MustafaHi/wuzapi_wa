@@ -136,7 +136,7 @@ func (s *server) UpdateGroupRequestParticipants() http.HandlerFunc {
 			return
 		}
 
-		_, err = clientManager.GetWhatsmeowClient(txtid).UpdateGroupRequestParticipants(context.Background(), group, phoneParsed, action)
+		_, err = client.UpdateGroupRequestParticipants(r.Context(), group, phoneParsed, action)
 
 		if err != nil {
 			log.Error().Str("error", fmt.Sprintf("%v", err)).Msg("failed to update group request participants")
