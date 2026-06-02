@@ -275,8 +275,9 @@ func (s *server) Connect() http.HandlerFunc {
 		userinfocache.Set(token, v, cache.NoExpiration)
 
 		log.Info().Str("jid", jid).Msg("Attempt to connect")
-		setKillChannel(txtid, make(chan bool, 1))
-		go s.startClient(txtid, jid, token)
+		kill := make(chan bool, 1)
+		setKillChannel(txtid, kill)
+		go s.startClient(txtid, jid, token, kill)
 
 		if t.Immediate == false {
 			log.Warn().Msg("Waiting 10 seconds")

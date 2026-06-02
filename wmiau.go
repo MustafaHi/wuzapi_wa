@@ -303,8 +303,9 @@ func (s *server) connectOnStartup() {
 			}
 			eventstring := strings.Join(subscribedEvents, ",")
 			log.Info().Str("events", eventstring).Str("jid", jid).Msg("Attempt to connect")
-			setKillChannel(txtid, make(chan bool, 1))
-			go s.startClient(txtid, jid, token)
+			kill := make(chan bool, 1)
+			setKillChannel(txtid, kill)
+			go s.startClient(txtid, jid, token, kill)
 
 			// Initialize S3 client if configured
 			go func(userID string) {
@@ -395,7 +396,7 @@ func getPlatformTypeEnum(platformType string) *waCompanionReg.DeviceProps_Platfo
 	}
 }
 
-func (s *server) startClient(userID string, textjid string, token string) {
+func (s *server) startClient(userID string, textjid string, token string, kill chan bool) {
 	log.Info().Str("userid", userID).Str("jid", textjid).Msg("Starting websocket connection to Whatsapp")
 
 	// Connection retry constants
@@ -656,13 +657,9 @@ func (s *server) startClient(userID string, textjid string, token string) {
 	}
 
 	// Keep the session goroutine alive until a kill signal arrives. Block on the
-	// channel (captured once via the mutex-guarded helper) instead of polling —
-	// this parks the goroutine with zero CPU and no per-second mutex access.
-	kill, ok := getKillChannel(userID)
-	if !ok {
-		log.Error().Str("userid", userID).Msg("no kill channel registered for session; goroutine exiting")
-		return
-	}
+	// channel (passed in directly, so this goroutine always owns its own channel
+	// even if a reconnect replaces the map entry) instead of polling — this parks
+	// the goroutine with zero CPU and no per-second mutex access.
 	<-kill
 	log.Info().Str("userid", userID).Msg("Received kill signal")
 	client.Disconnect()
