@@ -18,6 +18,8 @@ func TestResolveConnectEvents(t *testing.T) {
 		{"empty subscribe preserves existing", []string{}, "Message", "Message", false},
 		{"no subscribe, no existing stays empty", nil, "", "", false},
 		{"valid subscribe replaces and flags change", []string{"Message", "ReadReceipt"}, "Old", "Message,ReadReceipt", true},
+		{"subscribe equal to existing yields no change", []string{"Message"}, "Message", "Message", false},
+		{"subscribe equal to multi-value existing yields no change", []string{"Message", "ReadReceipt"}, "Message,ReadReceipt", "Message,ReadReceipt", false},
 		{"unsupported types are filtered", []string{"Message", "Bogus"}, "", "Message", true},
 		{"duplicates are de-duplicated", []string{"Message", "Message"}, "", "Message", true},
 	}

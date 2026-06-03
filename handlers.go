@@ -234,7 +234,8 @@ func resolveConnectEvents(subscribe []string, existing string) (eventstring stri
 			subscribedEvents = append(subscribedEvents, arg)
 		}
 	}
-	return strings.Join(subscribedEvents, ","), true
+	resolved := strings.Join(subscribedEvents, ",")
+	return resolved, resolved != existing
 }
 
 // setDisconnectedState marks a user disconnected. Event subscriptions are kept
@@ -289,10 +290,11 @@ func (s *server) Connect() http.HandlerFunc {
 		if changed {
 			if _, err = s.db.Exec("UPDATE users SET events=$1 WHERE id=$2", eventstring, txtid); err != nil {
 				log.Warn().Msg("Could not set events in users table")
+			} else {
+				log.Info().Str("events", eventstring).Msg("Setting subscribed events")
+				v := updateUserInfo(r.Context().Value("userinfo"), "Events", eventstring)
+				userinfocache.Set(token, v, cache.NoExpiration)
 			}
-			log.Info().Str("events", eventstring).Msg("Setting subscribed events")
-			v := updateUserInfo(r.Context().Value("userinfo"), "Events", eventstring)
-			userinfocache.Set(token, v, cache.NoExpiration)
 		} else {
 			log.Info().Str("events", eventstring).Msg("Preserving existing subscribed events")
 		}
@@ -349,11 +351,12 @@ func (s *server) Disconnect() http.HandlerFunc {
 			clearEvents := r.URL.Query().Get("clear") == "true"
 			if err := s.setDisconnectedState(txtid, clearEvents); err != nil {
 				log.Warn().Str("txtid", txtid).Msg("Could not update users table on disconnect")
-			}
-			log.Info().Str("txtid", txtid).Bool("clearedEvents", clearEvents).Msg("Update DB on disconnection")
-			if clearEvents {
-				v := updateUserInfo(r.Context().Value("userinfo"), "Events", "")
-				userinfocache.Set(token, v, cache.NoExpiration)
+			} else {
+				log.Info().Str("txtid", txtid).Bool("clearedEvents", clearEvents).Msg("Update DB on disconnection")
+				if clearEvents {
+					v := updateUserInfo(r.Context().Value("userinfo"), "Events", "")
+					userinfocache.Set(token, v, cache.NoExpiration)
+				}
 			}
 
 			response := map[string]interface{}{"Details": "Disconnected"}
