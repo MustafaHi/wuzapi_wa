@@ -3641,12 +3641,12 @@ func (s *server) UnblockUser() http.HandlerFunc {
 // returned by the blocklist endpoints: the blocked JIDs as strings plus the
 // dhash. A nil blocklist yields an empty list (never null) and an empty dhash.
 func formatBlocklist(blocklist *types.Blocklist) map[string]interface{} {
-	jids := make([]string, 0)
+	jids := []string{}
 	dhash := ""
 	if blocklist != nil {
-		jids = make([]string, 0, len(blocklist.JIDs))
-		for _, blockedJID := range blocklist.JIDs {
-			jids = append(jids, blockedJID.String())
+		jids = make([]string, len(blocklist.JIDs))
+		for i, blockedJID := range blocklist.JIDs {
+			jids[i] = blockedJID.String()
 		}
 		dhash = blocklist.DHash
 	}
@@ -3666,12 +3666,12 @@ func (s *server) GetBlocklist() http.HandlerFunc {
 			return
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 		defer cancel()
 
 		blocklist, err := client.GetBlocklist(ctx)
 		if err != nil {
-			s.Respond(w, r, http.StatusInternalServerError, errors.New(fmt.Sprintf("failed to get blocklist: %s", err)))
+			s.Respond(w, r, http.StatusInternalServerError, fmt.Errorf("failed to get blocklist: %w", err))
 			return
 		}
 
