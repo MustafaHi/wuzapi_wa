@@ -235,8 +235,20 @@ func getOpenGraphData(ctx context.Context, urlStr string, userID string) (title,
 // Update entry in User map
 func updateUserInfo(values interface{}, field string, value string) interface{} {
 	log.Debug().Str("field", field).Str("value", value).Msg("User info updated")
-	values.(Values).m[field] = value
-	return values
+	// Copy-on-write: the map inside Values is shared — it lives in
+	// userinfocache and is handed to request goroutines via the request
+	// context. Mutating it in place races with concurrent readers (Values.Get)
+	// and can crash the process with "concurrent map read and map write".
+	// Build a fresh map and return a new Values; callers persist it via
+	// userinfocache.Set. Use a comma-ok assertion so a nil or unexpected value
+	// can't panic — it falls back to the zero Values (nil map), handled below.
+	old, _ := values.(Values)
+	m := make(map[string]string, len(old.m)+1)
+	for k, v := range old.m {
+		m[k] = v
+	}
+	m[field] = value
+	return Values{m: m}
 }
 
 // webhook for regular messages
@@ -249,6 +261,10 @@ func callHookWithHmac(myurl string, payload map[string]string, userID string, en
 	log.Info().Str("url", myurl).Str("userID", userID).Msg("Sending POST to client with retry logic")
 
 	client := clientManager.GetHTTPClient(userID)
+	if client == nil {
+		log.Warn().Str("url", myurl).Str("userID", userID).Msg("HTTP client is nil for user, skipping webhook")
+		return
+	}
 
 	// Retry settings
 	maxRetries := 1
@@ -401,6 +417,10 @@ func callHookFileWithHmac(myurl string, payload map[string]string, userID string
 	log.Info().Str("file", file).Str("url", myurl).Msg("Sending POST with retry logic")
 
 	client := clientManager.GetHTTPClient(userID)
+	if client == nil {
+		log.Warn().Str("url", myurl).Str("userID", userID).Msg("HTTP client is nil for user, skipping file webhook")
+		return fmt.Errorf("http client is nil for user %s", userID)
+	}
 
 	maxRetries := 1
 	if *webhookRetryEnabled {
