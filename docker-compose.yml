@@ -1,5 +1,6 @@
 services:
   wuzapi-server:
+    image: mustafahi/wuzapi:1.0
     build:
       context: .
       dockerfile: Dockerfile
@@ -10,6 +11,10 @@ services:
       - WUZAPI_GLOBAL_ENCRYPTION_KEY=${WUZAPI_GLOBAL_ENCRYPTION_KEY}
       - WUZAPI_GLOBAL_HMAC_KEY=${WUZAPI_GLOBAL_HMAC_KEY:-}
       - WUZAPI_GLOBAL_WEBHOOK=${WUZAPI_GLOBAL_WEBHOOK:-}
+      - TZ=${TZ:-America/Sao_Paulo}
+      - DB_USER=${DB_USER:-wuzapi}
+      - DB_PASSWORD=${DB_PASSWORD:-wuzapi}
+      - DB_NAME=${DB_NAME:-wuzapi}
     networks:
       - wuzapi-network
     restart: on-failure
